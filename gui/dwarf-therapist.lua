@@ -6,6 +6,22 @@
 local gui     = require('gui')
 local widgets = require('gui.widgets')
 local utils   = require('utils')
+local json    = require('json')
+
+-- ============================================================
+-- Config persistence
+-- ============================================================
+
+local CONFIG_FILE = 'dfhack-config/dwarf-therapist.json'
+local _cfg
+
+local function get_cfg()
+    if not _cfg then
+        _cfg = json.open(CONFIG_FILE)
+        if not _cfg.data then _cfg.data = {} end
+    end
+    return _cfg
+end
 
 -- ============================================================
 -- Data helpers
@@ -21,7 +37,6 @@ end
 
 -- Manual labor→skill mapping. df.unit_labor.attrs[id].skill doesn't exist
 -- in the Steam DFHack version, so we maintain this table ourselves.
--- Labors without a direct skill relationship are omitted (they map to NONE).
 local LABOR_SKILL_MAP = {
     MINE             = 'MINING',
     CUTWOOD          = 'WOODCUTTING',
@@ -89,12 +104,31 @@ local LABORS = (function()
     for id, name in ipairs(df.unit_labor) do
         if id ~= df.unit_labor.NONE then
             local skill_name = LABOR_SKILL_MAP[name]
-            -- df.job_skill[name] returns nil if the name is wrong; fall back to NONE.
             local skill_id = (skill_name and df.job_skill[skill_name]) or df.job_skill.NONE
             table.insert(list, {name=name, id=id, skill_id=skill_id})
         end
     end
     table.sort(list, function(a, b) return a.name < b.name end)
+    return list
+end)()
+
+-- Combat skills shown in Military tab.
+local MILITARY_SKILLS = (function()
+    local names = {
+        'FIGHTER', 'SWORD', 'MACE', 'HAMMER', 'AXE', 'SPEAR', 'PIKE',
+        'WHIP', 'CROSSBOW', 'BOW', 'BLOWGUN', 'THROWING', 'BITE',
+        'SHIELD', 'ARMOR', 'DODGER', 'WRESTLER', 'STRIKER', 'KICKER',
+    }
+    local list = {}
+    for _, name in ipairs(names) do
+        local id = df.job_skill[name]
+        if id and id ~= df.job_skill.NONE then
+            local ok, cap = pcall(function()
+                return df.job_skill.attrs[id].caption
+            end)
+            table.insert(list, {name=name, id=id, caption=ok and cap or name})
+        end
+    end
     return list
 end)()
 
@@ -137,7 +171,7 @@ local function facet_pen(value)
 end
 
 -- ============================================================
--- Needs color helpers
+-- Stress / focus helpers
 -- ============================================================
 
 local STRESS_LEVELS = {
@@ -214,7 +248,7 @@ function NeedsPanel:rebuild()
     local s_label, s_pen = stress_info(soul.stress)
     self.subviews.stress:setText{
         'Mood: ',
-        {text = string.format('%-16s', s_label),        pen = s_pen},
+        {text = string.format('%-16s', s_label),           pen = s_pen},
         {text = string.format('(stress %d)', soul.stress), pen = COLOR_DARKGREY},
     }
     local needs = {}
@@ -283,7 +317,6 @@ function AttrsPanel:rebuild()
         })
         for i, v in ipairs(attrs) do
             local raw_name = enum_type[i] or tostring(i)
-            -- Convert UPPER_CASE to Title Case
             local name = raw_name:gsub('_', ' '):lower():gsub('^%l', string.upper)
             local pen  = attr_pen(v.value)
             table.insert(choices, {
@@ -326,7 +359,7 @@ function PersonalityPanel:init()
             key      = 'CUSTOM_A',
             label    = 'Show: ',
             options  = {
-                {label = 'Traits',  value = 'traits'},
+                {label = 'Traits',   value = 'traits'},
                 {label = 'Thoughts', value = 'thoughts'},
             },
             on_change = function() self:rebuild() end,
@@ -361,7 +394,6 @@ function PersonalityPanel:rebuild_traits()
             local raw_name = df.personality_facet_type[i] or tostring(i)
             local name = raw_name:gsub('_', ' '):lower():gsub('^%l', string.upper)
             local pen  = facet_pen(value)
-            -- Only show non-neutral traits prominently; grey out near-50 ones.
             table.insert(choices, {
                 text = {
                     {text = string.format('%-28s', name), pen = pen},
@@ -378,7 +410,6 @@ function PersonalityPanel:rebuild_thoughts()
     local choices = {}
     if self.unit and self.unit.status.current_soul then
         local emotions = self.unit.status.current_soul.personality.emotions
-        -- Sort most recent first.
         local sorted = {}
         for _, e in ipairs(emotions) do table.insert(sorted, e) end
         table.sort(sorted, function(a, b)
@@ -386,10 +417,9 @@ function PersonalityPanel:rebuild_thoughts()
             return a.year_tick > b.year_tick
         end)
         for _, e in ipairs(sorted) do
-            local emo  = df.emotion_type[e.type]    or '?'
-            local tht  = df.unit_thought_type[e.thought] or '?'
-            -- Positive relative_strength = good feeling, negative = bad.
-            local pen  = (e.relative_strength or 0) >= 0 and COLOR_LIGHTGREEN or COLOR_LIGHTRED
+            local emo = df.emotion_type[e.type]        or '?'
+            local tht = df.unit_thought_type[e.thought] or '?'
+            local pen = (e.relative_strength or 0) >= 0 and COLOR_LIGHTGREEN or COLOR_LIGHTRED
             table.insert(choices, {
                 text = {
                     {text = string.format('%-16s', emo), pen = pen},
@@ -470,16 +500,19 @@ end
 
 -- ============================================================
 -- LaborPanel: toggles with skill hints, coverage warnings,
--- and a "find best dwarf" hotkey.
+-- find-best-dwarf, undo, copy/paste, and named presets.
 -- ============================================================
+
+local labor_clipboard = nil  -- shared in-memory copy
 
 LaborPanel = defclass(LaborPanel, widgets.Panel)
 LaborPanel.ATTRS{
     unit         = DEFAULT_NIL,
-    on_find_best = DEFAULT_NIL,   -- callback(unit) to select a dwarf externally
+    on_find_best = DEFAULT_NIL,
 }
 
 function LaborPanel:init()
+    self.undo_state = nil   -- {labor_id, was_enabled}
     self:addviews{
         widgets.Label{
             view_id  = 'header',
@@ -489,14 +522,24 @@ function LaborPanel:init()
         },
         widgets.FilteredList{
             view_id   = 'list',
-            frame     = {t=2, l=0, b=2},
+            frame     = {t=2, l=0, b=4},
             on_submit = function(_, choice) self:toggle_labor(choice.labor_id) end,
+        },
+        widgets.Label{
+            frame = {b=2, l=0},
+            text  = {
+                {key='SELECT',   text=': Toggle  '},
+                {key='CUSTOM_F', text=': Find best  '},
+                {key='CUSTOM_Z', text=': Undo'},
+            },
         },
         widgets.Label{
             frame = {b=0, l=0},
             text  = {
-                {key='SELECT',    text=': Toggle  '},
-                {key='CUSTOM_F',  text=': Find best dwarf'},
+                {key='CUSTOM_C', text=': Copy  '},
+                {key='CUSTOM_V', text=': Paste  '},
+                {key='CUSTOM_P', text=': Save preset  '},
+                {key='CUSTOM_L', text=': Load preset'},
             },
         },
     }
@@ -509,7 +552,6 @@ function LaborPanel:set_unit(unit)
 end
 
 function LaborPanel:rebuild_list()
-    -- Count assignments across all citizens.
     local counts = {}
     for _, u in ipairs(get_citizens()) do
         for _, labor in ipairs(LABORS) do
@@ -525,8 +567,8 @@ function LaborPanel:rebuild_list()
             and self.unit.status.current_soul.skills or nil
 
         for _, labor in ipairs(LABORS) do
-            local enabled  = self.unit.status.labors[labor.id]
-            local count    = counts[labor.id] or 0
+            local enabled   = self.unit.status.labors[labor.id]
+            local count     = counts[labor.id] or 0
             local skill_str = string.rep(' ', 14)
             local name_pen  = COLOR_WHITE
 
@@ -561,21 +603,80 @@ end
 
 function LaborPanel:toggle_labor(labor_id)
     if not self.unit then return end
-    self.unit.status.labors[labor_id] = not self.unit.status.labors[labor_id]
+    local was = self.unit.status.labors[labor_id]
+    self.undo_state = {labor_id=labor_id, was_enabled=was}
+    self.unit.status.labors[labor_id] = not was
     self:rebuild_list()
+end
+
+function LaborPanel:undo_toggle()
+    if not self.unit or not self.undo_state then return end
+    self.unit.status.labors[self.undo_state.labor_id] = self.undo_state.was_enabled
+    self.undo_state = nil
+    self:rebuild_list()
+end
+
+function LaborPanel:copy_labors()
+    if not self.unit then return end
+    labor_clipboard = {}
+    for _, labor in ipairs(LABORS) do
+        labor_clipboard[labor.name] = self.unit.status.labors[labor.id] and true or false
+    end
+end
+
+function LaborPanel:paste_labors()
+    if not self.unit or not labor_clipboard then return end
+    for _, labor in ipairs(LABORS) do
+        self.unit.status.labors[labor.id] = labor_clipboard[labor.name] or false
+    end
+    self:rebuild_list()
+end
+
+function LaborPanel:save_preset()
+    if not self.unit then return end
+    local c = get_cfg()
+    if not c.data.presets then c.data.presets = {} end
+    local labors = {}
+    for _, labor in ipairs(LABORS) do
+        labors[labor.name] = self.unit.status.labors[labor.id] and true or false
+    end
+    local n = #c.data.presets + 1
+    table.insert(c.data.presets, {name='Preset ' .. n, labors=labors})
+    c:write()
+end
+
+function LaborPanel:load_preset_dialog()
+    if not self.unit then return end
+    local c = get_cfg()
+    if not c.data.presets or #c.data.presets == 0 then return end
+    local choices = {}
+    for _, preset in ipairs(c.data.presets) do
+        table.insert(choices, {
+            text       = preset.name,
+            preset     = preset,
+            search_key = preset.name:lower(),
+        })
+    end
+    local panel = self
+    PresetDialog{
+        choices   = choices,
+        on_apply  = function(preset)
+            for _, labor in ipairs(LABORS) do
+                panel.unit.status.labors[labor.id] = preset.labors[labor.name] or false
+            end
+            panel:rebuild_list()
+        end,
+    }:show()
 end
 
 function LaborPanel:find_best_dwarf()
     local _, choice = self.subviews.list:getSelected()
     if not choice then return end
-
-    -- Find the labor entry for this choice.
     local labor = nil
     for _, l in ipairs(LABORS) do
         if l.id == choice.labor_id then labor = l; break end
     end
     if not labor or labor.skill_id == df.job_skill.NONE then return end
-
     local best_unit, best_rating = nil, -1
     for _, u in ipairs(get_citizens()) do
         if u.status.current_soul then
@@ -587,19 +688,63 @@ function LaborPanel:find_best_dwarf()
             end
         end
     end
-
     if best_unit and self.on_find_best then
         self.on_find_best(best_unit)
     end
 end
 
 function LaborPanel:onInput(keys)
-    if keys.CUSTOM_F then
-        self:find_best_dwarf()
-        return true
-    end
+    if keys.CUSTOM_F then self:find_best_dwarf();      return true end
+    if keys.CUSTOM_Z then self:undo_toggle();           return true end
+    if keys.CUSTOM_C then self:copy_labors();           return true end
+    if keys.CUSTOM_V then self:paste_labors();          return true end
+    if keys.CUSTOM_P then self:save_preset();           return true end
+    if keys.CUSTOM_L then self:load_preset_dialog();   return true end
     return LaborPanel.super.onInput(self, keys)
 end
+
+-- ============================================================
+-- PresetDialog: modal window to pick and apply a saved preset.
+-- ============================================================
+
+PresetDialog = defclass(PresetDialog, gui.ZScreen)
+PresetDialog.ATTRS{
+    focus_path = 'dwarf-therapist/preset-dialog',
+    choices    = DEFAULT_NIL,
+    on_apply   = DEFAULT_NIL,
+}
+
+function PresetDialog:init()
+    local dlg = self
+    self:addviews{
+        widgets.Window{
+            frame_title = 'Load Preset',
+            frame       = {t=4, l=8, b=4, r=8},
+            resizable   = false,
+            subviews    = {},
+        },
+    }
+    local win = self.subviews[1]
+    win:addviews{
+        widgets.FilteredList{
+            view_id   = 'list',
+            frame     = {t=0, b=2, l=0, r=0},
+            choices   = self.choices,
+            on_submit = function(_, choice)
+                if dlg.on_apply then dlg.on_apply(choice.preset) end
+                dlg:dismiss()
+            end,
+        },
+        widgets.HotkeyLabel{
+            frame       = {b=0, l=0},
+            label       = 'Cancel',
+            key         = 'LEAVESCREEN',
+            on_activate = function() dlg:dismiss() end,
+        },
+    }
+end
+
+function PresetDialog:onDismiss() end
 
 -- ============================================================
 -- SummaryPanel: fortress-wide labor coverage at a glance.
@@ -640,9 +785,8 @@ function SummaryPanel:rebuild()
             if u.status.labors[labor.id] then
                 assigned = assigned + 1
             end
-            if labor.skill_id ~= df.job_skill.NONE
-               and u.status.current_soul then
-                local entry  = utils.binsearch(
+            if labor.skill_id ~= df.job_skill.NONE and u.status.current_soul then
+                local entry = utils.binsearch(
                     u.status.current_soul.skills, labor.skill_id, 'id')
                 if entry and entry.rating >= 0 then
                     table.insert(skilled, {unit=u, rating=entry.rating})
@@ -652,7 +796,6 @@ function SummaryPanel:rebuild()
 
         table.sort(skilled, function(a, b) return a.rating > b.rating end)
 
-        -- Build "top 2 skilled dwarves" string.
         local top_str = ''
         for i = 1, math.min(2, #skilled) do
             if i > 1 then top_str = top_str .. ', ' end
@@ -679,7 +822,223 @@ function SummaryPanel:rebuild()
 end
 
 -- ============================================================
--- DwarfPanel: citizen list with profession and sort options.
+-- MilitaryPanel: squad membership and combat skill summary.
+-- ============================================================
+
+MilitaryPanel = defclass(MilitaryPanel, widgets.Panel)
+MilitaryPanel.ATTRS{ unit = DEFAULT_NIL }
+
+function MilitaryPanel:init()
+    self:addviews{
+        widgets.Label{
+            view_id  = 'header',
+            frame    = {t=0, l=0, h=1},
+            text     = 'Select a dwarf.',
+            text_pen = COLOR_GREY,
+        },
+        widgets.Label{
+            view_id = 'squad_info',
+            frame   = {t=1, l=0, h=1},
+            text    = '',
+        },
+        widgets.FilteredList{
+            view_id = 'list',
+            frame   = {t=3, l=0, b=0},
+        },
+    }
+end
+
+function MilitaryPanel:set_unit(unit)
+    self.unit = unit
+    self.subviews.header:setText(unit and unit_display_name(unit) or 'Select a dwarf.')
+    self:rebuild()
+end
+
+function MilitaryPanel:rebuild()
+    if not self.unit then
+        self.subviews.squad_info:setText('')
+        self.subviews.list:setChoices({})
+        return
+    end
+
+    local u = self.unit
+
+    -- Squad info
+    local squad_str = 'Squad: None'
+    if u.military.squad_id ~= -1 then
+        local ok, squad = pcall(function() return df.squad.find(u.military.squad_id) end)
+        if ok and squad then
+            local name = dfhack.translation.translateName(squad.name, true)
+            if squad.alias ~= '' then
+                name = name .. ' (' .. squad.alias .. ')'
+            end
+            squad_str = 'Squad: ' .. name
+                .. '  Pos: ' .. (u.military.squad_position + 1)
+        end
+    end
+    self.subviews.squad_info:setText({text = squad_str, pen = COLOR_WHITE})
+
+    -- Combat skills
+    local choices = {}
+    if u.status.current_soul then
+        local u_skills = u.status.current_soul.skills
+        for _, sk in ipairs(MILITARY_SKILLS) do
+            local entry  = utils.binsearch(u_skills, sk.id, 'id')
+            local rating = entry and entry.rating or -1
+            local pen    = rating >= 0 and skill_pen(rating) or COLOR_DARKGREY
+            local rstr   = rating >= 0 and skill_rating_caption(rating) or 'unlearned'
+            table.insert(choices, {
+                text = {
+                    {text = string.format('%-22s', sk.caption), pen = pen},
+                    {text = rstr,                               pen = pen},
+                },
+                search_key = sk.caption:lower(),
+            })
+        end
+    end
+    self.subviews.list:setChoices(choices)
+end
+
+-- ============================================================
+-- WorkDetailsPanel: which work details this dwarf belongs to.
+-- ============================================================
+
+WorkDetailsPanel = defclass(WorkDetailsPanel, widgets.Panel)
+WorkDetailsPanel.ATTRS{ unit = DEFAULT_NIL }
+
+function WorkDetailsPanel:init()
+    self:addviews{
+        widgets.Label{
+            view_id  = 'header',
+            frame    = {t=0, l=0, h=1},
+            text     = 'Select a dwarf.',
+            text_pen = COLOR_GREY,
+        },
+        widgets.FilteredList{
+            view_id = 'list',
+            frame   = {t=2, l=0, b=0},
+        },
+    }
+end
+
+function WorkDetailsPanel:set_unit(unit)
+    self.unit = unit
+    self.subviews.header:setText(unit and unit_display_name(unit) or 'Select a dwarf.')
+    self:rebuild()
+end
+
+function WorkDetailsPanel:rebuild()
+    local choices = {}
+    if not self.unit then
+        self.subviews.list:setChoices(choices)
+        return
+    end
+    local uid = self.unit.id
+    local ok, work_details = pcall(function()
+        return df.global.plotinfo.labor_info.work_details
+    end)
+    if not ok or not work_details then
+        self.subviews.list:setChoices(choices)
+        return
+    end
+    for _, wd in ipairs(work_details) do
+        local assigned = false
+        for _, wuid in ipairs(wd.assigned_units) do
+            if wuid == uid then assigned = true; break end
+        end
+        table.insert(choices, {
+            text = {
+                {text = assigned and '[x] ' or '[ ] ',
+                 pen  = assigned and COLOR_GREEN or COLOR_GREY},
+                {text = wd.name, pen = COLOR_WHITE},
+            },
+            search_key = wd.name:lower(),
+        })
+    end
+    self.subviews.list:setChoices(choices)
+end
+
+-- ============================================================
+-- PreferencesPanel: food, material, creature and other likes.
+-- ============================================================
+
+PreferencesPanel = defclass(PreferencesPanel, widgets.Panel)
+PreferencesPanel.ATTRS{ unit = DEFAULT_NIL }
+
+local function pref_describe(pref)
+    local ptype = df.unitpref_type[pref.type] or tostring(pref.type)
+    local detail = ''
+    local ok, result = pcall(function()
+        if pref.type == df.unitpref_type.LikeCreature then
+            local cr = df.creature_raw.find(pref.creature_id)
+            if cr then return cr.name[0] end
+        elseif pref.type == df.unitpref_type.LikePlant then
+            local pl = df.plant_raw.find(pref.plant_id)
+            if pl then return pl.name end
+        elseif pref.type == df.unitpref_type.LikeItem then
+            local idef = dfhack.items.getSubtypeDef(pref.item_type, pref.item_subtype)
+            if idef then return idef.name end
+            return df.item_type[pref.item_type] or ''
+        elseif pref.type == df.unitpref_type.LikeMaterial then
+            local mi = dfhack.matinfo.decode(pref.mattype, pref.matindex)
+            if mi then
+                local sn = mi.material.state_name
+                return sn and (sn.Solid or sn.Liquid or '') or ''
+            end
+        elseif pref.type == df.unitpref_type.LikeFood
+            or pref.type == df.unitpref_type.HateFood then
+            local mi = dfhack.matinfo.decode(pref.mattype, pref.matindex)
+            if mi then
+                local sn = mi.material.state_name
+                return sn and (sn.Liquid or sn.Solid or '') or ''
+            end
+            return df.item_type[pref.item_type] or ''
+        end
+        return ''
+    end)
+    if ok and result then detail = result end
+    return ptype, detail
+end
+
+function PreferencesPanel:init()
+    self:addviews{
+        widgets.Label{
+            view_id  = 'header',
+            frame    = {t=0, l=0, h=1},
+            text     = 'Select a dwarf.',
+            text_pen = COLOR_GREY,
+        },
+        widgets.FilteredList{
+            view_id = 'list',
+            frame   = {t=2, l=0, b=0},
+        },
+    }
+end
+
+function PreferencesPanel:set_unit(unit)
+    self.unit = unit
+    self.subviews.header:setText(unit and unit_display_name(unit) or 'Select a dwarf.')
+    self:rebuild()
+end
+
+function PreferencesPanel:rebuild()
+    local choices = {}
+    if self.unit and self.unit.status.current_soul then
+        for _, pref in ipairs(self.unit.status.current_soul.preferences) do
+            local ptype, detail = pref_describe(pref)
+            local text_str = detail ~= '' and (ptype .. ': ' .. detail) or ptype
+            local pen = ptype:find('Hate') and COLOR_LIGHTRED or COLOR_WHITE
+            table.insert(choices, {
+                text = {{text = text_str, pen = pen}},
+                search_key = text_str:lower(),
+            })
+        end
+    end
+    self.subviews.list:setChoices(choices)
+end
+
+-- ============================================================
+-- DwarfPanel: citizen list with profession, job, and sort.
 -- ============================================================
 
 DwarfPanel = defclass(DwarfPanel, widgets.Panel)
@@ -695,7 +1054,7 @@ function DwarfPanel:init()
         widgets.FilteredList{
             view_id    = 'list',
             frame      = {t=2, l=0, b=4},
-            row_height = 2,
+            row_height = 3,
             on_select  = function(_, choice)
                 if self.on_select then self.on_select(choice.unit) end
             end,
@@ -728,20 +1087,25 @@ function DwarfPanel:refresh()
     local raw  = {}
 
     for _, unit in ipairs(get_citizens()) do
-        local name  = unit_display_name(unit)
-        local prof  = dfhack.units.getProfessionName(unit)
-        local soul  = unit.status.current_soul
+        local name   = unit_display_name(unit)
+        local prof   = dfhack.units.getProfessionName(unit)
+        local soul   = unit.status.current_soul
         local stress = soul and soul.personality.stress or 0
-        local idle   = unit.job.current_job == nil
+        local job    = unit.job.current_job
+        local idle   = job == nil
 
-        -- Color the name by stress level.
         local _, name_pen = stress_info(stress)
+        local job_str = idle and 'Idle'
+            or (df.job_type[job.job_type] or 'Working')
+        local job_pen = idle and COLOR_DARKGREY or COLOR_WHITE
 
         table.insert(raw, {
             text = {
-                {text = name, pen = name_pen},
+                {text = name,          pen = name_pen},
                 NEWLINE,
-                {text = '  ' .. prof, pen = COLOR_GREY},
+                {text = '  ' .. prof,  pen = COLOR_GREY},
+                NEWLINE,
+                {text = '  ' .. job_str, pen = job_pen},
             },
             search_key  = (name .. ' ' .. prof):lower(),
             unit        = unit,
@@ -760,7 +1124,6 @@ function DwarfPanel:refresh()
             return a.sort_name < b.sort_name
         end)
     elseif sort == 'stress' then
-        -- Most stressed first.
         table.sort(raw, function(a,b) return a.sort_stress > b.sort_stress end)
     elseif sort == 'idle' then
         table.sort(raw, function(a,b)
@@ -775,7 +1138,6 @@ function DwarfPanel:refresh()
     end
 end
 
--- Select a specific unit in the list (used by "find best dwarf").
 function DwarfPanel:select_unit(unit)
     local choices = self.subviews.list:getChoices()
     for i, choice in ipairs(choices) do
@@ -796,19 +1158,30 @@ TherapistWindow.ATTRS{
     frame_title = 'Dwarf Therapist',
     frame       = {t=2, l=2, r=2, b=2},
     resizable   = true,
-    resize_min  = {w=72, h=24},
+    resize_min  = {w=72, h=28},
 }
 
 function TherapistWindow:init()
+    -- Restore saved window position if available.
+    local c = get_cfg()
+    if c.data.frame then
+        for k, v in pairs(c.data.frame) do
+            self.frame[k] = v
+        end
+    end
+
     local DWARF_PANE_WIDTH = 28
     local RIGHT_LEFT       = DWARF_PANE_WIDTH + 1
 
-    local labor_panel    = LaborPanel{     view_id='labors'      }
-    local skill_panel    = SkillsPanel{    view_id='skills'      }
-    local needs_panel    = NeedsPanel{     view_id='needs'       }
-    local attrs_panel    = AttrsPanel{     view_id='attrs'       }
-    local person_panel   = PersonalityPanel{ view_id='personality' }
-    local summary_panel  = SummaryPanel{   view_id='summary'     }
+    local labor_panel   = LaborPanel{      view_id='labors'      }
+    local skill_panel   = SkillsPanel{     view_id='skills'      }
+    local needs_panel   = NeedsPanel{      view_id='needs'       }
+    local attrs_panel   = AttrsPanel{      view_id='attrs'       }
+    local person_panel  = PersonalityPanel{view_id='personality' }
+    local summary_panel = SummaryPanel{    view_id='summary'     }
+    local mil_panel     = MilitaryPanel{   view_id='military'    }
+    local work_panel    = WorkDetailsPanel{view_id='work'        }
+    local pref_panel    = PreferencesPanel{view_id='prefs'       }
 
     local function set_unit(unit)
         labor_panel:set_unit(unit)
@@ -816,7 +1189,9 @@ function TherapistWindow:init()
         needs_panel:set_unit(unit)
         attrs_panel:set_unit(unit)
         person_panel:set_unit(unit)
-        -- SummaryPanel is fortress-wide; no unit needed.
+        mil_panel:set_unit(unit)
+        work_panel:set_unit(unit)
+        pref_panel:set_unit(unit)
     end
 
     local dwarf_panel = DwarfPanel{
@@ -825,7 +1200,6 @@ function TherapistWindow:init()
         on_select = set_unit,
     }
 
-    -- Wire up "find best" so it navigates the dwarf list.
     labor_panel.on_find_best = function(unit)
         dwarf_panel:select_unit(unit)
         set_unit(unit)
@@ -838,11 +1212,13 @@ function TherapistWindow:init()
             frame_style = gui.FRAME_INTERIOR,
             interior    = true,
         },
-        -- h=4 gives room for two rows of 2-char-tall tabs.
         widgets.TabBar{
             view_id      = 'tabs',
             frame        = {t=0, l=RIGHT_LEFT, h=4, r=0},
-            labels       = {'Labors','Skills','Needs','Attributes','Personality','Summary'},
+            labels       = {
+                'Labors','Skills','Needs','Attrs',
+                'Persona','Summary','Military','Work','Prefs',
+            },
             on_select    = function(idx) self.subviews.pages:setSelected(idx) end,
             get_cur_page = function() return self.subviews.pages:getSelected() end,
         },
@@ -852,6 +1228,7 @@ function TherapistWindow:init()
             subviews = {
                 labor_panel, skill_panel, needs_panel,
                 attrs_panel, person_panel, summary_panel,
+                mil_panel, work_panel, pref_panel,
             },
         },
     }
@@ -869,6 +1246,16 @@ function TherapistScreen:init()
 end
 
 function TherapistScreen:onDismiss()
+    -- Save window position.
+    local win = self.subviews[1]
+    if win then
+        local c = get_cfg()
+        c.data.frame = {
+            t = win.frame.t, l = win.frame.l,
+            r = win.frame.r, b = win.frame.b,
+        }
+        c:write()
+    end
     view = nil
 end
 
