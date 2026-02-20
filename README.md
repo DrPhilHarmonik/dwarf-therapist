@@ -39,8 +39,8 @@ A fortress map must be loaded. Running the command again while the window is ope
 - Name color reflects current stress level (cyan = ecstatic → red = miserable)
 - Current job is shown in dark grey when idle, white when working
 - Type to filter by name or profession
-- `s` — cycle sort order: Name / Profession / Unhappy first / Idle first
-- `r` — refresh the list (picks up migrants, deaths, etc.)
+- `Ctrl+S` — cycle sort order: Name / Profession / Unhappy first / Idle first
+- `Ctrl+R` — refresh the list (picks up migrants, deaths, etc.)
 
 ## Tabs (right pane)
 
@@ -48,12 +48,12 @@ A fortress map must be loaded. Running the command again while the window is ope
 
 - Full list of assignable labors for the selected dwarf
 - `Enter` — toggle a labor on or off
-- `z` — undo the last labor toggle
-- `f` — **Find best dwarf**: jumps the dwarf list to the citizen with the highest skill for the highlighted labor
-- `c` — copy this dwarf's full labor set to the clipboard
-- `v` — paste the clipboard labor set onto this dwarf
-- `p` — save this dwarf's labor set as a new named preset (stored in `dfhack-config/dwarf-therapist.json`)
-- `l` — open the preset picker to load a saved preset onto this dwarf
+- `Ctrl+Z` — undo the last labor toggle
+- `Ctrl+F` — **Find best dwarf**: jumps the dwarf list to the citizen with the highest skill for the highlighted labor
+- `Ctrl+C` — copy this dwarf's full labor set to the clipboard
+- `Ctrl+V` — paste the clipboard labor set onto this dwarf
+- `Ctrl+P` — save this dwarf's labor set as a new named preset (stored in `dfhack-config/dwarf-therapist.json`)
+- `Ctrl+L` — open the preset picker to load a saved preset onto this dwarf
 - Type to filter by labor name
 - **Skill hints:** if a labor has an associated skill, the labor name is colored by the dwarf's rating in that skill and the rating is shown inline (grey → white → yellow → green → light green)
 - **Coverage count:** each labor shows how many dwarves are currently assigned — red if zero, yellow if one or two
@@ -62,7 +62,7 @@ A fortress map must be loaded. Running the command again while the window is ope
 
 - All skills for the selected dwarf, color-coded by rating
 - Type to filter by skill name
-- `a` — toggle between learned skills only (default) and all skills
+- `Ctrl+A` — toggle between learned skills only (default) and all skills
 
 ### Needs
 
@@ -78,7 +78,7 @@ A fortress map must be loaded. Running the command again while the window is ope
 
 ### Persona
 
-- `a` — toggle between two views:
+- `Ctrl+A` — toggle between two views:
   - **Traits:** personality facets (0–100), colored by how extreme they are — grey = neutral, white = notable, yellow = strong, red = extreme
   - **Thoughts:** recent emotions sorted newest-first, green = positive feeling, red = negative
 - Type to filter
@@ -88,7 +88,7 @@ A fortress map must be loaded. Running the command again while the window is ope
 - Fortress-wide labor coverage: every labor with its total assignment count and the top two most skilled dwarves for that labor
 - Assignment count is red if zero, yellow if one or two
 - Type to filter by labor name
-- `r` — refresh
+- `Ctrl+R` — refresh
 
 ### Military
 
@@ -109,7 +109,7 @@ A fortress map must be loaded. Running the command again while the window is ope
 
 ## CSV export
 
-Press `x` on any tab to export all citizens for that view to a CSV file in the DF install directory. The full path is printed to the DFHack console on success.
+Press `Ctrl+X` on any tab to export all citizens for that view to a CSV file in the DF install directory. The full path is printed to the DFHack console on success.
 
 | Tab | File | Contents |
 |-----|------|----------|

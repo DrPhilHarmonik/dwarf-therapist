@@ -261,7 +261,7 @@ function NeedsPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=3, l=0, b=0},
-            edit_ignore_keys = {'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_X'},
         },
     }
 end
@@ -327,7 +327,7 @@ function AttrsPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=2, l=0, b=0},
-            edit_ignore_keys = {'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_X'},
         },
     }
 end
@@ -391,7 +391,7 @@ function PersonalityPanel:init()
         widgets.CycleHotkeyLabel{
             view_id  = 'view_mode',
             frame    = {t=1, l=0, h=1},
-            key      = 'CUSTOM_A',
+            key      = 'CUSTOM_CTRL_A',
             label    = 'Show: ',
             options  = {
                 {label = 'Traits',   value = 'traits'},
@@ -402,7 +402,7 @@ function PersonalityPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=3, l=0, b=0},
-            edit_ignore_keys = {'CUSTOM_A', 'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_A', 'CUSTOM_CTRL_X'},
         },
     }
 end
@@ -486,12 +486,12 @@ function SkillsPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=2, l=0, b=2},
-            edit_ignore_keys = {'CUSTOM_A', 'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_A', 'CUSTOM_CTRL_X'},
         },
         widgets.CycleHotkeyLabel{
             view_id   = 'filter_mode',
             frame     = {b=0, l=0},
-            key       = 'CUSTOM_A',
+            key       = 'CUSTOM_CTRL_A',
             label     = 'Show: ',
             options   = {
                 {label='Learned only', value=false},
@@ -561,23 +561,23 @@ function LaborPanel:init()
             view_id          = 'list',
             frame            = {t=2, l=0, b=4},
             on_submit        = function(_, choice) self:toggle_labor(choice.labor_id) end,
-            edit_ignore_keys = {'CUSTOM_F','CUSTOM_Z','CUSTOM_C','CUSTOM_V','CUSTOM_P','CUSTOM_L','CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_F','CUSTOM_CTRL_Z','CUSTOM_CTRL_C','CUSTOM_CTRL_V','CUSTOM_CTRL_P','CUSTOM_CTRL_L','CUSTOM_CTRL_X'},
         },
         widgets.Label{
             frame = {b=2, l=0},
             text  = {
-                {key='SELECT',   text=': Toggle  '},
-                {key='CUSTOM_F', text=': Find best  '},
-                {key='CUSTOM_Z', text=': Undo'},
+                {key='SELECT',        text=': Toggle  '},
+                {key='CUSTOM_CTRL_F', text=': Find best  '},
+                {key='CUSTOM_CTRL_Z', text=': Undo'},
             },
         },
         widgets.Label{
             frame = {b=0, l=0},
             text  = {
-                {key='CUSTOM_C', text=': Copy  '},
-                {key='CUSTOM_V', text=': Paste  '},
-                {key='CUSTOM_P', text=': Save preset  '},
-                {key='CUSTOM_L', text=': Load preset'},
+                {key='CUSTOM_CTRL_C', text=': Copy  '},
+                {key='CUSTOM_CTRL_V', text=': Paste  '},
+                {key='CUSTOM_CTRL_P', text=': Save preset  '},
+                {key='CUSTOM_CTRL_L', text=': Load preset'},
             },
         },
     }
@@ -732,12 +732,12 @@ function LaborPanel:find_best_dwarf()
 end
 
 function LaborPanel:onInput(keys)
-    if keys.CUSTOM_F then self:find_best_dwarf();      return true end
-    if keys.CUSTOM_Z then self:undo_toggle();           return true end
-    if keys.CUSTOM_C then self:copy_labors();           return true end
-    if keys.CUSTOM_V then self:paste_labors();          return true end
-    if keys.CUSTOM_P then self:save_preset();           return true end
-    if keys.CUSTOM_L then self:load_preset_dialog();   return true end
+    if keys.CUSTOM_CTRL_F then self:find_best_dwarf();     return true end
+    if keys.CUSTOM_CTRL_Z then self:undo_toggle();          return true end
+    if keys.CUSTOM_CTRL_C then self:copy_labors();          return true end
+    if keys.CUSTOM_CTRL_V then self:paste_labors();         return true end
+    if keys.CUSTOM_CTRL_P then self:save_preset();          return true end
+    if keys.CUSTOM_CTRL_L then self:load_preset_dialog();  return true end
     return LaborPanel.super.onInput(self, keys)
 end
 
@@ -800,12 +800,12 @@ function SummaryPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=2, l=0, b=2},
-            edit_ignore_keys = {'CUSTOM_R', 'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_R', 'CUSTOM_CTRL_X'},
         },
         widgets.HotkeyLabel{
             frame       = {b=0, l=0},
             label       = 'Refresh',
-            key         = 'CUSTOM_R',
+            key         = 'CUSTOM_CTRL_R',
             on_activate = function() self:rebuild() end,
         },
     }
@@ -883,7 +883,7 @@ function MilitaryPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=3, l=0, b=0},
-            edit_ignore_keys = {'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_X'},
         },
     }
 end
@@ -957,7 +957,7 @@ function WorkDetailsPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=2, l=0, b=0},
-            edit_ignore_keys = {'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_X'},
         },
     }
 end
@@ -1052,7 +1052,7 @@ function PreferencesPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=2, l=0, b=0},
-            edit_ignore_keys = {'CUSTOM_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_X'},
         },
     }
 end
@@ -1098,9 +1098,9 @@ function DwarfPanel:init()
             frame            = {t=2, l=0, b=4},
             row_height       = 3,
             edit_ignore_keys = {
-                'CUSTOM_S', 'CUSTOM_R',
-                'CUSTOM_F', 'CUSTOM_Z', 'CUSTOM_C', 'CUSTOM_V',
-                'CUSTOM_P', 'CUSTOM_L', 'CUSTOM_A', 'CUSTOM_X',
+                'CUSTOM_CTRL_S', 'CUSTOM_CTRL_R',
+                'CUSTOM_CTRL_F', 'CUSTOM_CTRL_Z', 'CUSTOM_CTRL_C', 'CUSTOM_CTRL_V',
+                'CUSTOM_CTRL_P', 'CUSTOM_CTRL_L', 'CUSTOM_CTRL_A', 'CUSTOM_CTRL_X',
             },
             on_select        = function(_, choice)
                 if self.on_select then self.on_select(choice.unit) end
@@ -1109,7 +1109,7 @@ function DwarfPanel:init()
         widgets.CycleHotkeyLabel{
             view_id   = 'sort_mode',
             frame     = {b=2, l=0},
-            key       = 'CUSTOM_S',
+            key       = 'CUSTOM_CTRL_S',
             label     = 'Sort: ',
             options   = {
                 {label = 'Name',       value = 'name'},
@@ -1122,7 +1122,7 @@ function DwarfPanel:init()
         widgets.HotkeyLabel{
             frame       = {b=0, l=0},
             label       = 'Refresh list',
-            key         = 'CUSTOM_R',
+            key         = 'CUSTOM_CTRL_R',
             on_activate = function() self:refresh() end,
         },
     }
@@ -1536,7 +1536,7 @@ function TherapistWindow:export_tab()
 end
 
 function TherapistWindow:onInput(keys)
-    if keys.CUSTOM_X then
+    if keys.CUSTOM_CTRL_X then
         self:export_tab()
         return true
     end
