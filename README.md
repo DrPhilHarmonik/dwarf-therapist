@@ -1,6 +1,6 @@
 # Dwarf Therapist
 
-A [DFHack](https://github.com/DFHack/dfhack) GUI script for [Dwarf Fortress (Steam)](https://store.steampowered.com/app/975370/Dwarf_Fortress/) that lets you manage dwarf labors, view skills, and monitor needs — all without leaving the game.
+A [DFHack](https://github.com/DFHack/dfhack) GUI script for [Dwarf Fortress (Steam)](https://store.steampowered.com/app/975370/Dwarf_Fortress/) that lets you manage dwarf labors, view skills, monitor needs, and inspect attributes and personality — all without leaving the game.
 
 ![screenshot placeholder]
 
@@ -31,35 +31,58 @@ Open the DFHack console and run:
 gui/dwarf-therapist
 ```
 
-A fortress map must be loaded. Running the command again while the window is open will bring it to focus rather than opening a duplicate.
+A fortress map must be loaded. Running the command again while the window is open will bring it to focus rather than opening a duplicate. The window is draggable and resizable.
 
-## Features
+## Dwarf list (left pane)
 
-### Dwarf list (left pane)
-
-- All active citizen dwarves, with their profession shown below their name
+- All active citizen dwarves with their profession shown below their name
+- Name color reflects current stress level (cyan = ecstatic → red = miserable)
 - Type to filter by name or profession
+- `s` — cycle sort order: Name / Profession / Unhappy first / Idle first
 - `r` — refresh the list (picks up migrants, deaths, etc.)
 
-### Labors tab
+## Tabs (right pane)
+
+### Labors
 
 - Full list of assignable labors for the selected dwarf
 - `Enter` — toggle a labor on or off
+- `f` — **Find best dwarf**: jumps the dwarf list to the citizen with the highest skill for the highlighted labor
 - Type to filter by labor name
-- **Skill hints:** if a labor has an associated skill, the labor name is colored by the dwarf's rating in that skill (grey → white → yellow → green → light green as skill increases), and the rating is shown inline
-- **Coverage warnings:** each labor shows how many dwarves are currently assigned to it — red if zero, yellow if one or two
+- **Skill hints:** if a labor has an associated skill, the labor name is colored by the dwarf's rating in that skill and the rating is shown inline (grey → white → yellow → green → light green)
+- **Coverage count:** each labor shows how many dwarves are currently assigned — red if zero, yellow if one or two
 
-### Skills tab
+### Skills
 
 - All skills for the selected dwarf, color-coded by rating
 - Type to filter by skill name
 - `a` — toggle between learned skills only (default) and all skills
 
-### Needs tab
+### Needs
 
 - Overall mood and stress level at the top
-- All needs listed sorted worst-first, colored by fulfillment status (green → white → yellow → red)
+- All needs listed sorted worst-first, colored by fulfillment status (green → yellow → red)
 - Type to filter by need name
+
+### Attributes
+
+- Physical and mental attributes, color-coded by value
+- Dark grey = poor, grey = below average, white = average, green = above average, light green = exceptional
+- Type to filter by attribute name
+
+### Personality
+
+- `a` — toggle between two views:
+  - **Traits:** personality facets (0–100), colored by how extreme they are — grey = neutral, white = notable, yellow = strong, red = extreme
+  - **Thoughts:** recent emotions sorted newest-first, green = positive feeling, red = negative
+- Type to filter
+
+### Summary
+
+- Fortress-wide labor coverage: every labor with its total assignment count and the top two most skilled dwarves for that labor
+- Assignment count is red if zero, yellow if one or two
+- Type to filter by labor name
+- `r` — refresh
 
 ## License
 
