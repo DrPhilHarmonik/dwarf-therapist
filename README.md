@@ -107,6 +107,22 @@ A fortress map must be loaded. Running the command again while the window is ope
 - Hated preferences shown in red
 - Type to filter
 
+## CSV export
+
+Press `x` on any tab to export all citizens for that view to a CSV file in the DF install directory. The full path is printed to the DFHack console on success.
+
+| Tab | File | Contents |
+|-----|------|----------|
+| Labors | `dwarf-therapist-labors.csv` | dwarves × labors matrix (0/1) |
+| Skills | `dwarf-therapist-skills.csv` | dwarves × skills matrix (rating) |
+| Needs | `dwarf-therapist-needs.csv` | dwarves × needs matrix (focus level) |
+| Attrs | `dwarf-therapist-attributes.csv` | dwarves × attributes (value) |
+| Persona | `dwarf-therapist-traits.csv` | dwarves × personality facets (0–100) |
+| Summary | `dwarf-therapist-summary.csv` | labor coverage table |
+| Military | `dwarf-therapist-military.csv` | dwarves × combat skills + squad info |
+| Work | `dwarf-therapist-work-details.csv` | dwarves × work details (0/1) |
+| Prefs | `dwarf-therapist-preferences.csv` | one row per preference per dwarf |
+
 ## License
 
 MIT
