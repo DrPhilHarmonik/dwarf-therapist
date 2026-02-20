@@ -36,10 +36,10 @@ All active citizen dwarves are shown with their profession and current job.
 Name color reflects stress level (cyan = ecstatic, red = miserable). Type
 to filter by name or profession.
 
-``Ctrl+S``
+``Ctrl+O``
     Cycle sort order: Name / Profession / Unhappy first / Idle first.
 
-``Ctrl+R``
+``Ctrl+E``
     Refresh the list (picks up migrants, retirements, deaths, etc.).
 
 Tabs (right pane)
@@ -85,7 +85,7 @@ Tabs (right pane)
 
 **Summary**
     Fortress-wide labor coverage showing assignment count and the top two
-    most skilled dwarves for every labor. ``Ctrl+R`` to refresh.
+    most skilled dwarves for every labor. ``Ctrl+E`` to refresh.
 
 **Military**
     Squad name and position for the selected dwarf (or "None"), plus
@@ -910,12 +910,12 @@ function SummaryPanel:init()
         widgets.FilteredList{
             view_id          = 'list',
             frame            = {t=2, l=0, b=2},
-            edit_ignore_keys = {'CUSTOM_CTRL_R', 'CUSTOM_CTRL_X'},
+            edit_ignore_keys = {'CUSTOM_CTRL_E', 'CUSTOM_CTRL_X'},
         },
         widgets.HotkeyLabel{
             frame       = {b=0, l=0},
             label       = 'Refresh',
-            key         = 'CUSTOM_CTRL_R',
+            key         = 'CUSTOM_CTRL_E',
             on_activate = function() self:rebuild() end,
         },
     }
@@ -1208,7 +1208,7 @@ function DwarfPanel:init()
             frame            = {t=2, l=0, b=4},
             row_height       = 3,
             edit_ignore_keys = {
-                'CUSTOM_CTRL_S', 'CUSTOM_CTRL_R',
+                'CUSTOM_CTRL_O', 'CUSTOM_CTRL_E',
                 'CUSTOM_CTRL_F', 'CUSTOM_CTRL_Z', 'CUSTOM_CTRL_C', 'CUSTOM_CTRL_V',
                 'CUSTOM_CTRL_P', 'CUSTOM_CTRL_L', 'CUSTOM_CTRL_A', 'CUSTOM_CTRL_X',
             },
@@ -1219,7 +1219,7 @@ function DwarfPanel:init()
         widgets.CycleHotkeyLabel{
             view_id   = 'sort_mode',
             frame     = {b=2, l=0},
-            key       = 'CUSTOM_CTRL_S',
+            key       = 'CUSTOM_CTRL_O',
             label     = 'Sort: ',
             options   = {
                 {label = 'Name',       value = 'name'},
@@ -1232,7 +1232,7 @@ function DwarfPanel:init()
         widgets.HotkeyLabel{
             frame       = {b=0, l=0},
             label       = 'Refresh list',
-            key         = 'CUSTOM_CTRL_R',
+            key         = 'CUSTOM_CTRL_E',
             on_activate = function() self:refresh() end,
         },
     }

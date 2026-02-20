@@ -39,8 +39,8 @@ A fortress map must be loaded. Running the command again while the window is ope
 - Name color reflects current stress level (cyan = ecstatic → red = miserable)
 - Current job is shown in dark grey when idle, white when working
 - Type to filter by name or profession
-- `Ctrl+S` — cycle sort order: Name / Profession / Unhappy first / Idle first
-- `Ctrl+R` — refresh the list (picks up migrants, deaths, etc.)
+- `Ctrl+O` — cycle sort order: Name / Profession / Unhappy first / Idle first
+- `Ctrl+E` — refresh the list (picks up migrants, deaths, etc.)
 
 ## Tabs (right pane)
 
@@ -88,7 +88,7 @@ A fortress map must be loaded. Running the command again while the window is ope
 - Fortress-wide labor coverage: every labor with its total assignment count and the top two most skilled dwarves for that labor
 - Assignment count is red if zero, yellow if one or two
 - Type to filter by labor name
-- `Ctrl+R` — refresh
+- `Ctrl+E` — refresh
 
 ### Military
 
