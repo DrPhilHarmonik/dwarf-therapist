@@ -24,6 +24,39 @@ local function get_cfg()
 end
 
 -- ============================================================
+-- CSV export helpers
+-- ============================================================
+
+local function csv_escape(v)
+    local s = tostring(v == nil and '' or v)
+    if s:find('[,"\n\r]') then
+        s = '"' .. s:gsub('"', '""') .. '"'
+    end
+    return s
+end
+
+local function write_csv(path, headers, rows)
+    local f, err = io.open(path, 'w')
+    if not f then
+        dfhack.printerr('dwarf-therapist: cannot write ' .. path .. ': ' .. tostring(err))
+        return false
+    end
+    local function line(t)
+        local parts = {}
+        for _, v in ipairs(t) do table.insert(parts, csv_escape(v)) end
+        return table.concat(parts, ',') .. '\r\n'
+    end
+    f:write(line(headers))
+    for _, row in ipairs(rows) do f:write(line(row)) end
+    f:close()
+    return true
+end
+
+local function export_path(tag)
+    return dfhack.getDFPath() .. '/dwarf-therapist-' .. tag .. '.csv'
+end
+
+-- ============================================================
 -- Data helpers
 -- ============================================================
 
@@ -1184,6 +1217,7 @@ function TherapistWindow:init()
     local pref_panel    = PreferencesPanel{view_id='prefs'       }
 
     local function set_unit(unit)
+        self.current_unit = unit
         labor_panel:set_unit(unit)
         skill_panel:set_unit(unit)
         needs_panel:set_unit(unit)
@@ -1232,6 +1266,267 @@ function TherapistWindow:init()
             },
         },
     }
+end
+
+function TherapistWindow:export_tab()
+    local tab    = self.subviews.pages:getSelected()
+    local citizens = get_citizens()
+
+    local function base(u)
+        return {unit_display_name(u), dfhack.units.getProfessionName(u)}
+    end
+
+    local label, headers, rows, path
+
+    -- ---- Tab 1: Labors ----------------------------------------
+    if tab == 1 then
+        label   = 'labors'
+        headers = {'Name', 'Profession'}
+        for _, labor in ipairs(LABORS) do table.insert(headers, labor.name) end
+        rows = {}
+        for _, u in ipairs(citizens) do
+            local row = base(u)
+            for _, labor in ipairs(LABORS) do
+                table.insert(row, u.status.labors[labor.id] and 1 or 0)
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 2: Skills ----------------------------------------
+    elseif tab == 2 then
+        label = 'skills'
+        local skill_list = {}
+        for skill_id, _ in ipairs(df.job_skill) do
+            if skill_id ~= df.job_skill.NONE then
+                table.insert(skill_list, {
+                    id      = skill_id,
+                    caption = df.job_skill.attrs[skill_id].caption,
+                })
+            end
+        end
+        headers = {'Name', 'Profession'}
+        for _, sk in ipairs(skill_list) do table.insert(headers, sk.caption) end
+        rows = {}
+        for _, u in ipairs(citizens) do
+            local row = base(u)
+            if u.status.current_soul then
+                local u_skills = u.status.current_soul.skills
+                for _, sk in ipairs(skill_list) do
+                    local entry = utils.binsearch(u_skills, sk.id, 'id')
+                    table.insert(row, entry and entry.rating or '')
+                end
+            else
+                for _ in ipairs(skill_list) do table.insert(row, '') end
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 3: Needs -----------------------------------------
+    elseif tab == 3 then
+        label = 'needs'
+        local need_ids, need_set = {}, {}
+        for _, u in ipairs(citizens) do
+            if u.status.current_soul then
+                for _, need in ipairs(u.status.current_soul.personality.needs) do
+                    if not need_set[need.id] then
+                        need_set[need.id] = true
+                        table.insert(need_ids, need.id)
+                    end
+                end
+            end
+        end
+        table.sort(need_ids)
+        headers = {'Name', 'Stress'}
+        for _, nid in ipairs(need_ids) do
+            table.insert(headers, df.need_type[nid] or tostring(nid))
+        end
+        rows = {}
+        for _, u in ipairs(citizens) do
+            local soul = u.status.current_soul
+            local row  = {unit_display_name(u), soul and soul.personality.stress or ''}
+            local fmap = {}
+            if soul then
+                for _, need in ipairs(soul.personality.needs) do
+                    fmap[need.id] = need.focus_level
+                end
+            end
+            for _, nid in ipairs(need_ids) do
+                table.insert(row, fmap[nid] ~= nil and fmap[nid] or '')
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 4: Attributes ------------------------------------
+    elseif tab == 4 then
+        label = 'attributes'
+        local phys_cols, ment_cols = {}, {}
+        for i, raw in ipairs(df.physical_attribute_type) do
+            table.insert(phys_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+        end
+        for i, raw in ipairs(df.mental_attribute_type) do
+            table.insert(ment_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+        end
+        headers = {'Name', 'Profession'}
+        for _, a in ipairs(phys_cols) do table.insert(headers, a.name) end
+        for _, a in ipairs(ment_cols) do table.insert(headers, a.name) end
+        rows = {}
+        for _, u in ipairs(citizens) do
+            local row = base(u)
+            for _, a in ipairs(phys_cols) do
+                local v = u.body.physical_attrs[a.i]
+                table.insert(row, v and v.value or '')
+            end
+            if u.status.current_soul then
+                for _, a in ipairs(ment_cols) do
+                    local v = u.status.current_soul.mental_attrs[a.i]
+                    table.insert(row, v and v.value or '')
+                end
+            else
+                for _ in ipairs(ment_cols) do table.insert(row, '') end
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 5: Personality (traits) --------------------------
+    elseif tab == 5 then
+        label = 'traits'
+        local facet_cols = {}
+        for i, raw in ipairs(df.personality_facet_type) do
+            table.insert(facet_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+        end
+        headers = {'Name', 'Profession'}
+        for _, f in ipairs(facet_cols) do table.insert(headers, f.name) end
+        rows = {}
+        for _, u in ipairs(citizens) do
+            local row = base(u)
+            if u.status.current_soul then
+                local traits = u.status.current_soul.personality.traits
+                for _, f in ipairs(facet_cols) do
+                    table.insert(row, traits[f.i] ~= nil and traits[f.i] or '')
+                end
+            else
+                for _ in ipairs(facet_cols) do table.insert(row, '') end
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 6: Summary ---------------------------------------
+    elseif tab == 6 then
+        label   = 'summary'
+        headers = {'Labor', 'Assigned', 'Top1 Name', 'Top1 Rating', 'Top2 Name', 'Top2 Rating'}
+        rows    = {}
+        for _, labor in ipairs(LABORS) do
+            local assigned, skilled = 0, {}
+            for _, u in ipairs(citizens) do
+                if u.status.labors[labor.id] then assigned = assigned + 1 end
+                if labor.skill_id ~= df.job_skill.NONE and u.status.current_soul then
+                    local entry = utils.binsearch(u.status.current_soul.skills, labor.skill_id, 'id')
+                    if entry and entry.rating >= 0 then
+                        table.insert(skilled, {unit=u, rating=entry.rating})
+                    end
+                end
+            end
+            table.sort(skilled, function(a,b) return a.rating > b.rating end)
+            local row = {labor.name, assigned}
+            for i = 1, 2 do
+                if skilled[i] then
+                    table.insert(row, unit_display_name(skilled[i].unit))
+                    table.insert(row, skill_rating_caption(skilled[i].rating))
+                else
+                    table.insert(row, ''); table.insert(row, '')
+                end
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 7: Military --------------------------------------
+    elseif tab == 7 then
+        label   = 'military'
+        headers = {'Name', 'Profession', 'Squad', 'Squad Position'}
+        for _, sk in ipairs(MILITARY_SKILLS) do table.insert(headers, sk.caption) end
+        rows = {}
+        for _, u in ipairs(citizens) do
+            local sq_name, sq_pos = '', ''
+            if u.military.squad_id ~= -1 then
+                local ok2, sq = pcall(function() return df.squad.find(u.military.squad_id) end)
+                if ok2 and sq then
+                    sq_name = dfhack.translation.translateName(sq.name, true)
+                    if sq.alias ~= '' then sq_name = sq_name .. ' (' .. sq.alias .. ')' end
+                    sq_pos  = u.military.squad_position + 1
+                end
+            end
+            local row = {unit_display_name(u), dfhack.units.getProfessionName(u), sq_name, sq_pos}
+            if u.status.current_soul then
+                local u_skills = u.status.current_soul.skills
+                for _, sk in ipairs(MILITARY_SKILLS) do
+                    local entry = utils.binsearch(u_skills, sk.id, 'id')
+                    table.insert(row, entry and entry.rating or '')
+                end
+            else
+                for _ in ipairs(MILITARY_SKILLS) do table.insert(row, '') end
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 8: Work Details ----------------------------------
+    elseif tab == 8 then
+        label = 'work-details'
+        local ok2, wds = pcall(function()
+            return df.global.plotinfo.labor_info.work_details
+        end)
+        if not ok2 or not wds then
+            dfhack.printerr('dwarf-therapist: cannot access work details')
+            return
+        end
+        headers = {'Name', 'Profession'}
+        for _, wd in ipairs(wds) do table.insert(headers, wd.name) end
+        rows = {}
+        for _, u in ipairs(citizens) do
+            local row = base(u)
+            local uid = u.id
+            for _, wd in ipairs(wds) do
+                local assigned = false
+                for _, wuid in ipairs(wd.assigned_units) do
+                    if wuid == uid then assigned = true; break end
+                end
+                table.insert(row, assigned and 1 or 0)
+            end
+            table.insert(rows, row)
+        end
+
+    -- ---- Tab 9: Preferences (one row per pref) ----------------
+    elseif tab == 9 then
+        label   = 'preferences'
+        headers = {'Name', 'Profession', 'Type', 'Detail'}
+        rows    = {}
+        for _, u in ipairs(citizens) do
+            if u.status.current_soul then
+                local prefs = u.status.current_soul.preferences
+                if #prefs == 0 then
+                    table.insert(rows, {unit_display_name(u), dfhack.units.getProfessionName(u), '', ''})
+                else
+                    for _, pref in ipairs(prefs) do
+                        local ptype, detail = pref_describe(pref)
+                        table.insert(rows, {unit_display_name(u), dfhack.units.getProfessionName(u), ptype, detail})
+                    end
+                end
+            end
+        end
+    end
+
+    if not label then return end
+    path = export_path(label)
+    if write_csv(path, headers, rows) then
+        dfhack.print('dwarf-therapist: exported ' .. label .. ' -> ' .. path .. '\n')
+    end
+end
+
+function TherapistWindow:onInput(keys)
+    if keys.CUSTOM_X then
+        self:export_tab()
+        return true
+    end
+    return TherapistWindow.super.onInput(self, keys)
 end
 
 -- ============================================================
