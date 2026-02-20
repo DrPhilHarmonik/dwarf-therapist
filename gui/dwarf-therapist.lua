@@ -19,16 +19,79 @@ local function unit_display_name(unit)
     return dfhack.units.getReadableName(unit)
 end
 
+-- Manual labor→skill mapping. df.unit_labor.attrs[id].skill doesn't exist
+-- in the Steam DFHack version, so we maintain this table ourselves.
+-- Labors without a direct skill relationship are omitted (they map to NONE).
+local LABOR_SKILL_MAP = {
+    MINE             = 'MINING',
+    CUTWOOD          = 'WOODCUTTING',
+    CARPENTER        = 'CARPENTRY',
+    STONECUTTER      = 'CUT_STONE',
+    STONE_CARVER     = 'CARVE_STONE',
+    ENGRAVER         = 'ENGRAVE_STONE',
+    MASON            = 'MASONRY',
+    ANIMALTRAIN      = 'ANIMALTRAIN',
+    ANIMALCARE       = 'ANIMALCARE',
+    DIAGNOSE         = 'DIAGNOSE',
+    SURGERY          = 'SURGERY',
+    BONE_SETTING     = 'SET_BONE',
+    SUTURING         = 'SUTURE',
+    DRESSING_WOUNDS  = 'DRESS_WOUNDS',
+    BUTCHER          = 'BUTCHER',
+    TRAPPER          = 'TRAPPING',
+    DISSECT_VERMIN   = 'DISSECT_VERMIN',
+    LEATHER          = 'LEATHERWORK',
+    TANNER           = 'TANNER',
+    BREWER           = 'BREWING',
+    WEAVER           = 'WEAVING',
+    CLOTHESMAKER     = 'CLOTHESMAKING',
+    MILLER           = 'MILLING',
+    PROCESS_PLANT    = 'PROCESSPLANTS',
+    MAKE_CHEESE      = 'CHEESEMAKING',
+    MILK             = 'MILK',
+    COOK             = 'COOK',
+    PLANT            = 'PLANT',
+    HERBALIST        = 'HERBALISM',
+    FISH             = 'FISH',
+    CLEAN_FISH       = 'PROCESSFISH',
+    DISSECT_FISH     = 'DISSECT_FISH',
+    SMELT            = 'SMELT',
+    FORGE_WEAPON     = 'FORGE_WEAPON',
+    FORGE_ARMOR      = 'FORGE_ARMOR',
+    FORGE_FURNITURE  = 'FORGE_FURNITURE',
+    METAL_CRAFT      = 'METALCRAFT',
+    CUT_GEM          = 'CUTGEM',
+    ENCRUST_GEM      = 'ENCRUSTGEM',
+    WOOD_CRAFT       = 'WOODCRAFT',
+    STONE_CRAFT      = 'STONECRAFT',
+    BONE_CARVE       = 'BONECARVE',
+    GLASSMAKER       = 'GLASSMAKER',
+    EXTRACT_STRAND   = 'EXTRACT_STRAND',
+    SIEGECRAFT       = 'SIEGECRAFT',
+    SIEGEOPERATE     = 'SIEGEOPERATE',
+    BOWYER           = 'BOWYER',
+    MECHANIC         = 'MECHANICS',
+    DYER             = 'DYER',
+    SHEARER          = 'SHEARING',
+    SPINNER          = 'SPINNING',
+    POTTERY          = 'POTTERY',
+    GLAZING          = 'GLAZING',
+    PRESSING         = 'PRESSING',
+    BEEKEEPING       = 'BEEKEEPING',
+    WAX_WORKING      = 'WAX_WORKING',
+    PAPERMAKING      = 'PAPERMAKING',
+    BOOKBINDING      = 'BOOKBINDING',
+}
+
 -- Labor list: {name, id, skill_id} built once at load time.
 local LABORS = (function()
     local list = {}
     for id, name in ipairs(df.unit_labor) do
         if id ~= df.unit_labor.NONE then
-            table.insert(list, {
-                name     = name,
-                id       = id,
-                skill_id = df.unit_labor.attrs[id].skill,
-            })
+            local skill_name = LABOR_SKILL_MAP[name]
+            -- df.job_skill[name] returns nil if the name is wrong; fall back to NONE.
+            local skill_id = (skill_name and df.job_skill[skill_name]) or df.job_skill.NONE
+            table.insert(list, {name=name, id=id, skill_id=skill_id})
         end
     end
     table.sort(list, function(a, b) return a.name < b.name end)
