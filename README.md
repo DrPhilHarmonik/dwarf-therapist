@@ -2,8 +2,6 @@
 
 A [DFHack](https://github.com/DFHack/dfhack) GUI script for [Dwarf Fortress (Steam)](https://store.steampowered.com/app/975370/Dwarf_Fortress/) that lets you manage dwarf labors, view skills, monitor needs, and inspect attributes, personality, military status, work details, and preferences — all without leaving the game.
 
-![screenshot placeholder]
-
 ## Requirements
 
 - Dwarf Fortress (Steam edition)
