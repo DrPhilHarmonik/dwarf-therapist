@@ -1097,7 +1097,11 @@ function DwarfPanel:init()
             view_id          = 'list',
             frame            = {t=2, l=0, b=4},
             row_height       = 3,
-            edit_ignore_keys = {'CUSTOM_S', 'CUSTOM_R'},
+            edit_ignore_keys = {
+                'CUSTOM_S', 'CUSTOM_R',
+                'CUSTOM_F', 'CUSTOM_Z', 'CUSTOM_C', 'CUSTOM_V',
+                'CUSTOM_P', 'CUSTOM_L', 'CUSTOM_A', 'CUSTOM_X',
+            },
             on_select        = function(_, choice)
                 if self.on_select then self.on_select(choice.unit) end
             end,
