@@ -1096,7 +1096,7 @@ function DwarfPanel:refresh()
 
         local _, name_pen = stress_info(stress)
         local job_str = idle and 'Idle'
-            or (df.job_type[job.job_type] or 'Working')
+            or (df.job_type.attrs[job.job_type] and df.job_type.attrs[job.job_type].caption or 'Working')
         local job_pen = idle and COLOR_DARKGREY or COLOR_WHITE
 
         table.insert(raw, {
