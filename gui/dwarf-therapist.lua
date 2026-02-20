@@ -259,8 +259,9 @@ function NeedsPanel:init()
             text    = '',
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=3, l=0, b=0},
+            view_id          = 'list',
+            frame            = {t=3, l=0, b=0},
+            edit_ignore_keys = {'CUSTOM_X'},
         },
     }
 end
@@ -324,8 +325,9 @@ function AttrsPanel:init()
             text_pen = COLOR_GREY,
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=2, l=0, b=0},
+            view_id          = 'list',
+            frame            = {t=2, l=0, b=0},
+            edit_ignore_keys = {'CUSTOM_X'},
         },
     }
 end
@@ -398,8 +400,9 @@ function PersonalityPanel:init()
             on_change = function() self:rebuild() end,
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=3, l=0, b=0},
+            view_id          = 'list',
+            frame            = {t=3, l=0, b=0},
+            edit_ignore_keys = {'CUSTOM_A', 'CUSTOM_X'},
         },
     }
 end
@@ -481,8 +484,9 @@ function SkillsPanel:init()
             text_pen = COLOR_GREY,
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=2, l=0, b=2},
+            view_id          = 'list',
+            frame            = {t=2, l=0, b=2},
+            edit_ignore_keys = {'CUSTOM_A', 'CUSTOM_X'},
         },
         widgets.CycleHotkeyLabel{
             view_id   = 'filter_mode',
@@ -554,9 +558,10 @@ function LaborPanel:init()
             text_pen = COLOR_GREY,
         },
         widgets.FilteredList{
-            view_id   = 'list',
-            frame     = {t=2, l=0, b=4},
-            on_submit = function(_, choice) self:toggle_labor(choice.labor_id) end,
+            view_id          = 'list',
+            frame            = {t=2, l=0, b=4},
+            on_submit        = function(_, choice) self:toggle_labor(choice.labor_id) end,
+            edit_ignore_keys = {'CUSTOM_F','CUSTOM_Z','CUSTOM_C','CUSTOM_V','CUSTOM_P','CUSTOM_L','CUSTOM_X'},
         },
         widgets.Label{
             frame = {b=2, l=0},
@@ -793,8 +798,9 @@ function SummaryPanel:init()
             text_pen = COLOR_YELLOW,
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=2, l=0, b=2},
+            view_id          = 'list',
+            frame            = {t=2, l=0, b=2},
+            edit_ignore_keys = {'CUSTOM_R', 'CUSTOM_X'},
         },
         widgets.HotkeyLabel{
             frame       = {b=0, l=0},
@@ -875,8 +881,9 @@ function MilitaryPanel:init()
             text    = '',
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=3, l=0, b=0},
+            view_id          = 'list',
+            frame            = {t=3, l=0, b=0},
+            edit_ignore_keys = {'CUSTOM_X'},
         },
     }
 end
@@ -948,8 +955,9 @@ function WorkDetailsPanel:init()
             text_pen = COLOR_GREY,
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=2, l=0, b=0},
+            view_id          = 'list',
+            frame            = {t=2, l=0, b=0},
+            edit_ignore_keys = {'CUSTOM_X'},
         },
     }
 end
@@ -1042,8 +1050,9 @@ function PreferencesPanel:init()
             text_pen = COLOR_GREY,
         },
         widgets.FilteredList{
-            view_id = 'list',
-            frame   = {t=2, l=0, b=0},
+            view_id          = 'list',
+            frame            = {t=2, l=0, b=0},
+            edit_ignore_keys = {'CUSTOM_X'},
         },
     }
 end
@@ -1085,10 +1094,11 @@ function DwarfPanel:init()
             text_pen = COLOR_YELLOW,
         },
         widgets.FilteredList{
-            view_id    = 'list',
-            frame      = {t=2, l=0, b=4},
-            row_height = 3,
-            on_select  = function(_, choice)
+            view_id          = 'list',
+            frame            = {t=2, l=0, b=4},
+            row_height       = 3,
+            edit_ignore_keys = {'CUSTOM_S', 'CUSTOM_R'},
+            on_select        = function(_, choice)
                 if self.on_select then self.on_select(choice.unit) end
             end,
         },
