@@ -1,7 +1,117 @@
--- gui/dwarf-therapist: Labor, skill, needs, attribute and personality manager.
--- Similar in spirit to Dwarf Therapist.
---
--- Usage:  gui/dwarf-therapist   (or Ctrl+Shift+T if keybinding is set)
+-- Manage dwarf labors, skills, needs, attributes, and personality.
+--[====[
+
+gui/dwarf-therapist
+===================
+
+Tags: fort | inspection | interface | labors | units
+
+Command: ``gui/dwarf-therapist``
+
+  Manage dwarf labors, skills, needs, attributes, and personality.
+
+Dwarf Therapist is a split-pane GUI for managing fortress citizens. The
+dwarf list is on the left; detailed tabs for the selected dwarf are on the
+right. The window is draggable, resizable, and remembers its position and
+size between sessions (stored in ``dfhack-config/dwarf-therapist.json``).
+
+A fortress map must be loaded. Running the command again while the window
+is open will bring it to focus rather than opening a duplicate.
+
+Usage
+-----
+
+::
+
+    gui/dwarf-therapist
+
+Optional keybinding — add to ``dfhack-config/init/dfhack.init``::
+
+    keybinding add Ctrl+Shift+T gui/dwarf-therapist
+
+Dwarf list (left pane)
+----------------------
+
+All active citizen dwarves are shown with their profession and current job.
+Name color reflects stress level (cyan = ecstatic, red = miserable). Type
+to filter by name or profession.
+
+``Ctrl+S``
+    Cycle sort order: Name / Profession / Unhappy first / Idle first.
+
+``Ctrl+R``
+    Refresh the list (picks up migrants, retirements, deaths, etc.).
+
+Tabs (right pane)
+-----------------
+
+**Labors**
+    Full list of assignable labors. ``Enter`` toggles the highlighted labor.
+    Labor names are colored by the dwarf's skill rating for that labor; a
+    coverage count shows how many dwarves hold each labor (red = zero,
+    yellow = one or two).
+
+    ``Ctrl+F``  Find best dwarf — jump the list to the citizen with the
+    highest skill for the highlighted labor.
+
+    ``Ctrl+Z``  Undo the last labor toggle.
+
+    ``Ctrl+C``  Copy this dwarf's full labor set to the clipboard.
+
+    ``Ctrl+V``  Paste the clipboard labor set onto this dwarf.
+
+    ``Ctrl+P``  Save this dwarf's labor set as a new named preset.
+
+    ``Ctrl+L``  Open the preset picker to load a saved preset onto this dwarf.
+
+**Skills**
+    All skills color-coded by rating. ``Ctrl+A`` toggles between learned
+    skills only (default) and all skills.
+
+**Needs**
+    Overall mood and stress level at the top. All needs sorted worst-first,
+    colored by fulfillment status (green = satisfied, red = badly distracted).
+
+**Attrs**
+    Physical and mental attributes color-coded by value (dark grey = poor,
+    light green = exceptional).
+
+**Persona**
+    ``Ctrl+A`` toggles between two views:
+
+    - *Traits* — personality facets (0–100), grey = neutral, red = extreme.
+    - *Thoughts* — recent emotions sorted newest-first, green = positive,
+      red = negative.
+
+**Summary**
+    Fortress-wide labor coverage showing assignment count and the top two
+    most skilled dwarves for every labor. ``Ctrl+R`` to refresh.
+
+**Military**
+    Squad name and position for the selected dwarf (or "None"), plus
+    combat skill ratings.
+
+**Work**
+    All work details defined in the fortress with ``[x]`` marking which
+    ones this dwarf belongs to.
+
+**Prefs**
+    All personality preferences (liked/hated foods, materials, creatures,
+    items, plants, etc.). Hated preferences are shown in red.
+
+CSV export
+----------
+
+Press ``Ctrl+X`` on any tab to export data for all citizens to a CSV file
+in the DF install directory. The full path is printed to the DFHack console.
+
+Presets
+-------
+
+Named labor presets are saved to ``dfhack-config/dwarf-therapist.json``.
+The same file stores the window position and size.
+
+]====]
 
 local gui     = require('gui')
 local widgets = require('gui.widgets')
