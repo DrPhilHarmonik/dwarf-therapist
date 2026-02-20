@@ -1485,10 +1485,14 @@ function TherapistWindow:export_tab()
         label = 'attributes'
         local phys_cols, ment_cols = {}, {}
         for i, raw in ipairs(df.physical_attribute_type) do
-            table.insert(phys_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+            if i >= 0 then
+                table.insert(phys_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+            end
         end
         for i, raw in ipairs(df.mental_attribute_type) do
-            table.insert(ment_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+            if i >= 0 then
+                table.insert(ment_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+            end
         end
         headers = {'Name', 'Profession'}
         for _, a in ipairs(phys_cols) do table.insert(headers, a.name) end
@@ -1516,7 +1520,9 @@ function TherapistWindow:export_tab()
         label = 'traits'
         local facet_cols = {}
         for i, raw in ipairs(df.personality_facet_type) do
-            table.insert(facet_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+            if i >= 0 then
+                table.insert(facet_cols, {i=i, name=raw:gsub('_',' '):lower():gsub('^%l',string.upper)})
+            end
         end
         headers = {'Name', 'Profession'}
         for _, f in ipairs(facet_cols) do table.insert(headers, f.name) end
