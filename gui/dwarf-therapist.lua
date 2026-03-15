@@ -156,9 +156,18 @@ local function write_csv(path, headers, rows)
         for _, v in ipairs(t) do table.insert(parts, csv_escape(v)) end
         return table.concat(parts, ',') .. '\r\n'
     end
-    f:write(line(headers))
-    for _, row in ipairs(rows) do f:write(line(row)) end
+    local ok, werr = f:write(line(headers))
+    if ok then
+        for _, row in ipairs(rows) do
+            ok, werr = f:write(line(row))
+            if not ok then break end
+        end
+    end
     f:close()
+    if not ok then
+        dfhack.printerr('dwarf-therapist: write error for ' .. path .. ': ' .. tostring(werr))
+        return false
+    end
     return true
 end
 
@@ -289,11 +298,14 @@ end
 
 local function skill_rating_caption(rating)
     if rating < 0 then return '<unlearned>' end
-    if rating > df.skill_rating.Legendary then
-        local bonus = rating - df.skill_rating.Legendary
-        return df.skill_rating.attrs[df.skill_rating.Legendary].caption .. '+' .. bonus
-    end
-    return df.skill_rating.attrs[rating].caption
+    local ok, result = pcall(function()
+        if rating > df.skill_rating.Legendary then
+            local bonus = rating - df.skill_rating.Legendary
+            return df.skill_rating.attrs[df.skill_rating.Legendary].caption .. '+' .. bonus
+        end
+        return df.skill_rating.attrs[rating].caption
+    end)
+    return ok and result or tostring(rating)
 end
 
 -- Attribute value: typical range 500-1500, average ~1000.
@@ -1179,7 +1191,7 @@ function PreferencesPanel:rebuild()
         for _, pref in ipairs(self.unit.status.current_soul.preferences) do
             local ptype, detail = pref_describe(pref)
             local text_str = detail ~= '' and (ptype .. ': ' .. detail) or ptype
-            local pen = ptype:find('Hate') and COLOR_LIGHTRED or COLOR_WHITE
+            local pen = (pref.type == df.unitpref_type.HateFood) and COLOR_LIGHTRED or COLOR_WHITE
             table.insert(choices, {
                 text = {{text = text_str, pen = pen}},
                 search_key = text_str:lower(),
@@ -1322,8 +1334,20 @@ function TherapistWindow:init()
     -- Restore saved window position if available.
     local c = get_cfg()
     if c.data.frame then
-        for k, v in pairs(c.data.frame) do
-            self.frame[k] = v
+        local f = c.data.frame
+        -- Validate that all fields are numbers and the window fits on the
+        -- current screen before applying them.  A stale or hand-edited config
+        -- could otherwise place the window entirely off-screen.
+        if type(f.t) == 'number' and type(f.l) == 'number' and
+           type(f.r) == 'number' and type(f.b) == 'number' then
+            local sw, sh = dfhack.screen.getWindowSize()
+            local min_w  = self.resize_min and self.resize_min.w or 20
+            local min_h  = self.resize_min and self.resize_min.h or 10
+            if f.t >= 0 and f.l >= 0 and f.r >= 0 and f.b >= 0 and
+               (sw - f.l - f.r) >= min_w and
+               (sh - f.t - f.b) >= min_h then
+                for k, v in pairs(f) do self.frame[k] = v end
+            end
         end
     end
 
@@ -1393,7 +1417,9 @@ function TherapistWindow:init()
 end
 
 function TherapistWindow:export_tab()
-    local tab    = self.subviews.pages:getSelected()
+    local tab_idx  = self.subviews.pages:getSelected()
+    local page     = self.subviews.pages.subviews[tab_idx]
+    local vid      = page and page.view_id or ''
     local citizens = get_citizens()
 
     local function base(u)
@@ -1402,8 +1428,8 @@ function TherapistWindow:export_tab()
 
     local label, headers, rows, path
 
-    -- ---- Tab 1: Labors ----------------------------------------
-    if tab == 1 then
+    -- ---- Tab: Labors ------------------------------------------
+    if vid == 'labors' then
         label   = 'labors'
         headers = {'Name', 'Profession'}
         for _, labor in ipairs(LABORS) do table.insert(headers, labor.name) end
@@ -1416,8 +1442,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 2: Skills ----------------------------------------
-    elseif tab == 2 then
+    -- ---- Tab: Skills ------------------------------------------
+    elseif vid == 'skills' then
         label = 'skills'
         local skill_list = {}
         for skill_id, _ in ipairs(df.job_skill) do
@@ -1445,8 +1471,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 3: Needs -----------------------------------------
-    elseif tab == 3 then
+    -- ---- Tab: Needs -------------------------------------------
+    elseif vid == 'needs' then
         label = 'needs'
         local need_ids, need_set = {}, {}
         for _, u in ipairs(citizens) do
@@ -1480,8 +1506,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 4: Attributes ------------------------------------
-    elseif tab == 4 then
+    -- ---- Tab: Attributes --------------------------------------
+    elseif vid == 'attrs' then
         label = 'attributes'
         local phys_cols, ment_cols = {}, {}
         for i, raw in ipairs(df.physical_attribute_type) do
@@ -1515,8 +1541,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 5: Personality (traits) --------------------------
-    elseif tab == 5 then
+    -- ---- Tab: Personality (traits) ----------------------------
+    elseif vid == 'personality' then
         label = 'traits'
         local facet_cols = {}
         for i, raw in ipairs(df.personality_facet_type) do
@@ -1540,8 +1566,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 6: Summary ---------------------------------------
-    elseif tab == 6 then
+    -- ---- Tab: Summary -----------------------------------------
+    elseif vid == 'summary' then
         label   = 'summary'
         headers = {'Labor', 'Assigned', 'Top1 Name', 'Top1 Rating', 'Top2 Name', 'Top2 Rating'}
         rows    = {}
@@ -1569,8 +1595,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 7: Military --------------------------------------
-    elseif tab == 7 then
+    -- ---- Tab: Military ----------------------------------------
+    elseif vid == 'military' then
         label   = 'military'
         headers = {'Name', 'Profession', 'Squad', 'Squad Position'}
         for _, sk in ipairs(MILITARY_SKILLS) do table.insert(headers, sk.caption) end
@@ -1598,8 +1624,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 8: Work Details ----------------------------------
-    elseif tab == 8 then
+    -- ---- Tab: Work Details ------------------------------------
+    elseif vid == 'work' then
         label = 'work-details'
         local ok2, wds = pcall(function()
             return df.global.plotinfo.labor_info.work_details
@@ -1624,8 +1650,8 @@ function TherapistWindow:export_tab()
             table.insert(rows, row)
         end
 
-    -- ---- Tab 9: Preferences (one row per pref) ----------------
-    elseif tab == 9 then
+    -- ---- Tab: Preferences (one row per pref) ------------------
+    elseif vid == 'prefs' then
         label   = 'preferences'
         headers = {'Name', 'Profession', 'Type', 'Detail'}
         rows    = {}
@@ -1692,4 +1718,6 @@ if not dfhack.isMapLoaded() then
     qerror('A fortress map must be loaded to use Dwarf Therapist.')
 end
 
+-- `view` is a module-level singleton.  Re-running the command raises the
+-- existing window instead of opening a duplicate.  onDismiss() clears it.
 view = view and view:raise() or TherapistScreen{}:show()
