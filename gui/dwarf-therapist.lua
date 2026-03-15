@@ -1345,7 +1345,7 @@ TherapistWindow.ATTRS{
     frame_title = 'Dwarf Therapist',
     frame       = {t=2, l=2, r=2, b=2},
     resizable   = true,
-    resize_min  = {w=78, h=28},
+    resize_min  = {w=90, h=28},
 }
 
 function TherapistWindow:init()
@@ -1369,7 +1369,7 @@ function TherapistWindow:init()
         end
     end
 
-    local DWARF_PANE_WIDTH = 34
+    local DWARF_PANE_WIDTH = 42
     local RIGHT_LEFT       = DWARF_PANE_WIDTH + 1
 
     local labor_panel   = LaborPanel{      view_id='labors'      }
