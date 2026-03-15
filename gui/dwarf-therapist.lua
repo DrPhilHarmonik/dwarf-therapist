@@ -1132,7 +1132,8 @@ local function pref_describe(pref)
     local ptype = df.unitpref_type[pref.type] or tostring(pref.type)
     local detail = ''
     local ok, result = pcall(function()
-        if pref.type == df.unitpref_type.LikeCreature then
+        if pref.type == df.unitpref_type.LikeCreature
+            or pref.type == df.unitpref_type.HateCreature then
             local cr = df.creature_raw.find(pref.creature_id)
             if cr then return cr.name[0] end
         elseif pref.type == df.unitpref_type.LikePlant then
@@ -1141,7 +1142,8 @@ local function pref_describe(pref)
         elseif pref.type == df.unitpref_type.LikeItem then
             local idef = dfhack.items.getSubtypeDef(pref.item_type, pref.item_subtype)
             if idef then return idef.name end
-            return df.item_type[pref.item_type] or ''
+            local itype = df.item_type[pref.item_type]
+            if itype then return itype:lower():gsub('_', ' ') end
         elseif pref.type == df.unitpref_type.LikeMaterial then
             local mi = dfhack.matinfo.decode(pref.mattype, pref.matindex)
             if mi then
@@ -1155,7 +1157,23 @@ local function pref_describe(pref)
                 local sn = mi.material.state_name
                 return sn and (sn.Liquid or sn.Solid or '') or ''
             end
-            return df.item_type[pref.item_type] or ''
+            local itype = df.item_type[pref.item_type]
+            if itype then return itype:lower():gsub('_', ' ') end
+        elseif pref.type == df.unitpref_type.LikeShape then
+            local sh = df.global.world.raws.descriptors.shapes[pref.shape_id]
+            if sh then return sh.id:lower():gsub('_', ' ') end
+        elseif pref.type == df.unitpref_type.LikeColor then
+            local co = df.global.world.raws.descriptors.colors[pref.color_id]
+            if co then return co.id:lower():gsub('_', ' ') end
+        elseif pref.type == df.unitpref_type.LikePoeticForm then
+            local form = df.global.world.poetic_forms.all[pref.poetic_form_id]
+            if form then return dfhack.translation.translateName(form.name, true) end
+        elseif pref.type == df.unitpref_type.LikeMusicalForm then
+            local form = df.global.world.musical_forms.all[pref.musical_form_id]
+            if form then return dfhack.translation.translateName(form.name, true) end
+        elseif pref.type == df.unitpref_type.LikeDanceForm then
+            local form = df.global.world.dance_forms.all[pref.dance_form_id]
+            if form then return dfhack.translation.translateName(form.name, true) end
         end
         return ''
     end)
@@ -1191,7 +1209,7 @@ function PreferencesPanel:rebuild()
         for _, pref in ipairs(self.unit.status.current_soul.preferences) do
             local ptype, detail = pref_describe(pref)
             local text_str = detail ~= '' and (ptype .. ': ' .. detail) or ptype
-            local pen = (pref.type == df.unitpref_type.HateFood) and COLOR_LIGHTRED or COLOR_WHITE
+            local pen = ptype:sub(1, 4) == 'Hate' and COLOR_LIGHTRED or COLOR_WHITE
             table.insert(choices, {
                 text = {{text = text_str, pen = pen}},
                 search_key = text_str:lower(),
@@ -1327,7 +1345,7 @@ TherapistWindow.ATTRS{
     frame_title = 'Dwarf Therapist',
     frame       = {t=2, l=2, r=2, b=2},
     resizable   = true,
-    resize_min  = {w=72, h=28},
+    resize_min  = {w=78, h=28},
 }
 
 function TherapistWindow:init()
@@ -1351,7 +1369,7 @@ function TherapistWindow:init()
         end
     end
 
-    local DWARF_PANE_WIDTH = 28
+    local DWARF_PANE_WIDTH = 34
     local RIGHT_LEFT       = DWARF_PANE_WIDTH + 1
 
     local labor_panel   = LaborPanel{      view_id='labors'      }
